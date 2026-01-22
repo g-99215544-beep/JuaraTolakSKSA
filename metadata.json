@@ -1,0 +1,5 @@
+{
+  "name": "Juara Tambah - Retro Math Champion",
+  "description": "A retro-styled addition game using React, Tailwind, and Gemini AI for personalized teacher feedback. Features local high scores and performance tracking.",
+  "requestFramePermissions": []
+}
