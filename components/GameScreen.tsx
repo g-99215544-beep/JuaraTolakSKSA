@@ -271,13 +271,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ player, onEndGame }) => {
              </div>
         </div>
 
-        {/* Answer Grid - Updated Size to 8XL for massive visibility */}
+        {/* Answer Grid - Updated Size to 4XL (Smaller) */}
         <div className="grid grid-cols-2 gap-4 mt-auto">
             {question?.options.map((opt, idx) => (
                 <RetroButton 
                     key={idx} 
                     onClick={() => handleAnswer(opt)}
-                    className="text-8xl py-10 hover:bg-cyan-50"
+                    className="text-4xl py-6 hover:bg-cyan-50"
                 >
                     {opt}
                 </RetroButton>
