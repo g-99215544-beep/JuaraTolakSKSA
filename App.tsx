@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
-import GameOverScreen from './components/GameOverScreen';
+import GameOverScreen from './components/GameOverScreen'; // Still imported but unused in new flow
 import Leaderboard from './components/Leaderboard';
 import { ScreenState, Player } from './types';
 import { saveScore } from './services/storageService';
@@ -10,24 +10,37 @@ const App: React.FC = () => {
   const [screen, setScreen] = useState<ScreenState>(ScreenState.START);
   const [player, setPlayer] = useState<Player>({ name: '', className: '' });
   const [finalScore, setFinalScore] = useState(0);
-  const [isScoreSaved, setIsScoreSaved] = useState(false);
+  
+  // State untuk pass info ke Leaderboard untuk highlighting
+  const [highlightInfo, setHighlightInfo] = useState<{name: string, className: string, score: number} | null>(null);
 
   const handleStartGame = (newPlayer: Player) => {
     setPlayer(newPlayer);
     setScreen(ScreenState.PLAYING);
+    setHighlightInfo(null); // Reset highlight info
   };
 
   const handleEndGame = async (score: number, correctCount: number) => {
     setFinalScore(score);
-    const saved = await saveScore(player.name, player.className, score);
-    setIsScoreSaved(saved);
-    setScreen(ScreenState.GAME_OVER);
+    
+    // Simpan markah di background
+    await saveScore(player.name, player.className, score);
+    
+    // Set info untuk highlight di leaderboard
+    setHighlightInfo({
+      name: player.name,
+      className: player.className,
+      score: score
+    });
+
+    // Terus ke Leaderboard (SKIP GameOverScreen)
+    setScreen(ScreenState.LEADERBOARD);
   };
 
-  const handleRestart = () => {
+  const handleBackToStart = () => {
     setScreen(ScreenState.START);
     setFinalScore(0);
-    setIsScoreSaved(false);
+    setHighlightInfo(null);
   };
 
   return (
@@ -52,18 +65,12 @@ const App: React.FC = () => {
         />
       )}
 
-      {screen === ScreenState.GAME_OVER && (
-        <GameOverScreen 
-          score={finalScore}
-          isScoreSaved={isScoreSaved}
-          onRestart={handleRestart}
-          onShowLeaderboard={() => setScreen(ScreenState.LEADERBOARD)}
-        />
-      )}
+      {/* Note: GameOverScreen is bypassed based on new requirements */}
 
       {screen === ScreenState.LEADERBOARD && (
         <Leaderboard 
-          onBack={() => setScreen(ScreenState.START)} 
+          onBack={handleBackToStart}
+          highlightParams={highlightInfo}
         />
       )}
     </div>
