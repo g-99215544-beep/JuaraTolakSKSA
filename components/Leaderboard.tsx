@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { RetroButton, RetroPanel, CrownIcon } from './RetroUI';
 import { getScores } from '../services/storageService';
 import { ScoreRecord } from '../types';
@@ -6,13 +6,17 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 
 interface LeaderboardProps {
   onBack: () => void;
+  highlightParams?: { name: string, className: string, score: number } | null;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ onBack }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ onBack, highlightParams }) => {
   const [scores, setScores] = useState<ScoreRecord[]>([]);
   const [filter, setFilter] = useState<string>('ALL');
   const [availableClasses, setAvailableClasses] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Ref untuk scroll ke element murid
+  const currentUserRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadScores = async () => {
@@ -26,7 +30,20 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onBack }) => {
       setIsLoading(false);
     };
     loadScores();
-  }, []);
+  }, []); // Run once on mount
+
+  // Auto-scroll effect bila data loaded DAN ada highlightParams
+  useEffect(() => {
+    if (!isLoading && highlightParams && currentUserRef.current) {
+        // Delay sedikit untuk memastikan render selesai
+        setTimeout(() => {
+            currentUserRef.current?.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+        }, 300);
+    }
+  }, [isLoading, highlightParams, filter, scores]);
 
   const filteredScores = filter === 'ALL' 
     ? scores 
@@ -37,9 +54,28 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onBack }) => {
     score: s.score
   }));
 
+  // Helper untuk check adakah ini rekod murid sekarang
+  const isCurrentUser = (record: ScoreRecord) => {
+      if (!highlightParams) return false;
+      return record.name === highlightParams.name && 
+             record.className === highlightParams.className && 
+             record.score === highlightParams.score;
+  };
+
   return (
-    <RetroPanel className="w-full max-w-lg h-[85vh] flex flex-col">
-      <div className="text-center mb-6">
+    <RetroPanel className="w-full max-w-lg h-[85vh] flex flex-col relative">
+      
+      {/* Banner Markah Anda (Jika baru lepas main) */}
+      {highlightParams && (
+         <div className="absolute -top-4 left-0 w-full flex justify-center z-20 animate-pop">
+            <div className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-nunito font-bold px-6 py-2 rounded-full shadow-lg border-2 border-white flex items-center gap-2">
+                <span>MARKAH ANDA:</span>
+                <span className="text-xl font-black text-yellow-300">{highlightParams.score}</span>
+            </div>
+         </div>
+      )}
+
+      <div className={`text-center mb-4 ${highlightParams ? 'mt-6' : ''}`}>
         <h2 className="text-2xl font-black text-slate-800">PAPAN MARKAH</h2>
         
         {/* Filter Controls */}
@@ -68,9 +104,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onBack }) => {
         </div>
       ) : (
         <>
-          {/* Recharts Visualization for Top 5 */}
-          {filteredScores.length > 0 ? (
-            <div className="h-48 w-full bg-gradient-to-b from-cyan-50 to-white rounded-2xl mb-4 p-4">
+          {/* Recharts Visualization for Top 5 (Hanya tunjuk jika TIADA highlight atau jika user scroll ke atas) */}
+          {/* Kita sembunyikan chart jika list panjang dan user perlu discroll ke bawah, tapi user boleh scroll naik */}
+          {filteredScores.length > 0 && (
+            <div className="h-40 w-full bg-gradient-to-b from-cyan-50 to-white rounded-2xl mb-4 p-4 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData}>
                     <XAxis 
@@ -99,56 +136,63 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onBack }) => {
                   </BarChart>
                 </ResponsiveContainer>
             </div>
-          ) : (
-             <div className="h-40 w-full bg-slate-50 rounded-2xl mb-4 flex items-center justify-center border border-dashed border-slate-300">
-                 <p className="font-bold text-slate-400">TIADA DATA</p>
-             </div>
           )}
 
           {/* Scrollable List */}
-          <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar relative">
             {filteredScores.length === 0 ? (
               <p className="text-center font-bold text-slate-400 mt-10">TIADA REKOD LAGI.</p>
             ) : (
-              filteredScores.map((record, index) => (
-                <div 
-                  key={record.id} 
-                  className={`flex justify-between items-center p-4 rounded-xl shadow-sm transition-transform hover:scale-[1.02] ${
-                      index === 0 
-                      ? 'bg-gradient-to-r from-yellow-100 to-amber-100 border border-yellow-200' 
-                      : 'bg-white border border-slate-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                     <div className={`
-                        w-8 h-8 flex items-center justify-center rounded-full font-black text-sm
-                        ${index === 0 ? 'bg-yellow-400 text-white' : 
-                          index === 1 ? 'bg-slate-300 text-white' : 
-                          index === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-500'}
-                     `}>
-                        {index + 1}
-                     </div>
-                     <div className="flex flex-col text-left">
-                        <span className="font-bold text-slate-800 text-sm">{record.name}</span>
-                        <span className="text-xs font-semibold text-slate-400">{record.className}</span>
-                     </div>
-                  </div>
-                  <div className="flex items-center">
-                    <span className={`font-black text-lg ${index === 0 ? 'text-amber-600' : 'text-cyan-600'}`}>
-                        {record.score}
-                    </span>
-                    {index === 0 && <CrownIcon className="w-5 h-5 ml-2 -mt-1" />}
-                  </div>
-                </div>
-              ))
+              filteredScores.map((record, index) => {
+                const highlighted = isCurrentUser(record);
+                return (
+                    <div 
+                      key={record.id} 
+                      ref={highlighted ? currentUserRef : null}
+                      className={`flex justify-between items-center p-4 rounded-xl shadow-sm transition-all duration-500 ${
+                          highlighted 
+                            ? 'bg-cyan-100 border-2 border-cyan-500 scale-[1.03] shadow-glow z-10' 
+                            : index === 0 
+                                ? 'bg-gradient-to-r from-yellow-100 to-amber-100 border border-yellow-200' 
+                                : 'bg-white border border-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                         <div className={`
+                            w-8 h-8 flex items-center justify-center rounded-full font-black text-sm
+                            ${highlighted ? 'bg-cyan-600 text-white' : 
+                              index === 0 ? 'bg-yellow-400 text-white' : 
+                              index === 1 ? 'bg-slate-300 text-white' : 
+                              index === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-500'}
+                         `}>
+                            {index + 1}
+                         </div>
+                         <div className="flex flex-col text-left">
+                            <span className={`font-bold text-sm ${highlighted ? 'text-cyan-900' : 'text-slate-800'}`}>
+                                {record.name} {highlighted && '(ANDA)'}
+                            </span>
+                            <span className={`text-xs font-semibold ${highlighted ? 'text-cyan-700' : 'text-slate-400'}`}>
+                                {record.className}
+                            </span>
+                         </div>
+                      </div>
+                      <div className="flex items-center">
+                        <span className={`font-black text-lg ${index === 0 ? 'text-amber-600' : 'text-cyan-600'}`}>
+                            {record.score}
+                        </span>
+                        {index === 0 && <CrownIcon className="w-5 h-5 ml-2 -mt-1" />}
+                      </div>
+                    </div>
+                );
+              })
             )}
           </div>
         </>
       )}
 
-      <div className="mt-4">
+      <div className="mt-4 shrink-0">
         <RetroButton onClick={onBack} variant="secondary" fullWidth>
-            KEMBALI
+            {highlightParams ? 'MAIN LAGI' : 'KEMBALI'}
         </RetroButton>
       </div>
       
